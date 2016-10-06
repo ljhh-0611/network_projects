@@ -5,7 +5,6 @@ import time
 import random
 from threading import Timer
 
-
 # Settable parameters
 BANDWIDTH = 100000 # 1000 = 1KB, in turn, 10000  = 10KB (B/SEC)
 MTU = 1000 # Maximum Transmit Unit for this medium (B)
