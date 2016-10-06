@@ -53,7 +53,7 @@ def node():
 
 	# Random packet generator. It use gauss distribution. Mean is set by 50, and Standard
 	randnum = generate_random()
-        if randnum > 52:
+        if randnum > 54:
 		# Before real transmit packet routine, save how many occur sequential collision before
 		before_collision = NUM_OF_COLLISION
 
