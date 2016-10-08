@@ -2,6 +2,7 @@ import sys
 import socket
 import select
 import time
+import random
 from threading import Timer
 
 NODE_LIST = []
@@ -30,11 +31,12 @@ def medium():
     t=None # Event Scheduler
     num_of_connected_nodes = 0
 
-    MEDIUM_COST = raw_input('Put the cost of This Medium: ')
-    while not MEDIUM_COST.isdigit():
-      MEDIUM_COST = raw_input('It is NOT DIGIT. plz Put again: ')
+    #MEDIUM_COST = raw_input('Put the cost of This Medium: ')
+    #while not MEDIUM_COST.isdigit():
+    #  MEDIUM_COST = raw_input('It is NOT DIGIT. plz Put again: ')
 
-    MEDIUM_COST = int(MEDIUM_COST)
+    MEDIUM_COST = random.randrange(1,20)
+    print ('This MEDIUM costs '+str(MEDIUM_COST))
 
     NODE_LIST.append(sys.stdin)
     sys.stdout.write('Put the Node Number to Connect: '); sys.stdout.flush()

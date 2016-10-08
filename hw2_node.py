@@ -66,11 +66,7 @@ def node():
                   data = extract_data(packet) # Extract data in a packet
 
 		  if data[0:9] == 'Connected':
-		    print data[9:]
-		    print 'data[9:] type is ' + str(type(data[9:]))
 		    new_dict = ast.literal_eval(data[9:])
-		    print new_dict
-                    print 'new_dict type is ' + str(type(new_dict))
 		    ADJACENT_NODES.update(new_dict)
 		    print ADJACENT_NODES
                   elif not data:
