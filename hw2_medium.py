@@ -20,14 +20,21 @@ BUSY = 'B'
 #Global variable
 STATUS = IDLE # Status of Medium : I -> Idle, B -> Busy
 
-
+MEDIUM_COST = 9999
 
 def medium():
 
     global STATUS # Status of Medium : I -> Idle, B -> Busy
+    global MEDIUM_COST
 
     t=None # Event Scheduler
     num_of_connected_nodes = 0
+
+    MEDIUM_COST = raw_input('Put the cost of This Medium: ')
+    while not MEDIUM_COST.isdigit():
+      MEDIUM_COST = raw_input('It is NOT DIGIT. plz Put again: ')
+
+    MEDIUM_COST = int(MEDIUM_COST)
 
     NODE_LIST.append(sys.stdin)
     sys.stdout.write('Put the Node Number to Connect: '); sys.stdout.flush()
@@ -141,19 +148,18 @@ def forward_pkt (medium_socket, sock, message):
 def forward_connect ():
 
   global STATUS
+  global MEDIUM_COST
 
   for socket in NODE_LIST:
     # Send the message only to peer
     if socket != sys.stdin:
         try:
      	    if socket == NODE_LIST[1]:
-	      print('case node num: '+str(NODE_NUM_LIST[0]))
-	      message = 'Connected'+str(NODE_NUM_LIST[1])
+	      message = 'Connected'+str( {NODE_NUM_LIST[1]:MEDIUM_COST} )
   	      packet = message + '*'*(MTU-(len(message)))
               socket.send(packet)
      	    elif socket == NODE_LIST[2]:
-	      print('case node num: '+str(NODE_NUM_LIST[1]))
-	      message = 'Connected'+str(NODE_NUM_LIST[0])
+	      message = 'Connected'+str( {NODE_NUM_LIST[0]:MEDIUM_COST} )
   	      packet = message + '*'*(MTU-(len(message)))
               socket.send(packet)
         except:

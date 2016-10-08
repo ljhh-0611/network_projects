@@ -2,6 +2,7 @@ import sys
 import socket
 import select
 import time
+import ast
 from threading import Timer
 
 HOST = ''
@@ -14,9 +15,13 @@ RECV_BUFFER = MTU # Receive buffer size
 
 MEDIUM_LIST = []
 NODE_NUM = None
-ADJACENT_NODES = []
+ADJACENT_NODES = {}
+
+node_socket = None
 
 def node():
+
+    global node_socket
 
     NODE_NUM = raw_input("input Node Number (9100~): ")
 
@@ -51,8 +56,8 @@ def node():
                   if cmd == 'quit\n':
                     #s.close()
                     sys.exit()
-                  trans_data = 'DATA' # Data will be stored in packet
-                  #transmit(s,trans_data) # Transmit a data packet
+                  #trans_data = 'DATA' # Data will be stored in packet
+                  transmit() # Transmit a data packet
                   #sys.stdout.write('Press ENTER key for transmitting a packet or type \'quit\' to end this program. : '); sys.stdout.flush()
                   sys.stdout.write('YOU Press ENTER key\n'); sys.stdout.flush()
                 else:
@@ -61,7 +66,12 @@ def node():
                   data = extract_data(packet) # Extract data in a packet
 
 		  if data[0:9] == 'Connected':
-		    ADJACENT_NODES.append(int(data[9:]))
+		    print data[9:]
+		    print 'data[9:] type is ' + str(type(data[9:]))
+		    new_dict = ast.literal_eval(data[9:])
+		    print new_dict
+                    print 'new_dict type is ' + str(type(new_dict))
+		    ADJACENT_NODES.update(new_dict)
 		    print ADJACENT_NODES
                   elif not data:
                     print('\nNot data?!')
@@ -78,15 +88,17 @@ def node():
 
 
 # Make and transmit a data packet
-def transmit (s, trans_data):
+def transmit ():
 
-  packet = trans_data 
+  global node_socket
 
-  if len(packet) > MTU:
+  if len(str(ADJACENT_NODES)) > MTU:
     print('Cannot transmit a packet -----> packet size exceeds MTU')
   else:
-    packet = packet + '*'*(MTU-(len(trans_data)))
-    s.send(packet)
+    packet = str(ADJACENT_NODES) + '*'*(MTU-(len(str(ADJACENT_NODES))))
+    for socket in MEDIUM_LIST:
+      if socket != sys.stdin and socket != node_socket:
+    	socket.send(packet)
     print('Transmit a packet')
 
 # Extract data
