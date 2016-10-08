@@ -40,11 +40,15 @@ def medium():
         for sock in ready_to_read:
             try:
               if sock == sys.stdin:
-                cmd = sys.stdin.readline()
-                if cmd == 'quit\n':
+                cmd = sys.stdin.readline().rstrip('\n')
+                if cmd == 'quit':
                  # s.close()
                   sys.exit()
                 if num_of_connected_nodes < 2:
+		  if not cmd.isdigit():
+		    print('Wrong! It is not digit!')
+		    sys.stdout.write('Put the Node Number to Connect: '); sys.stdout.flush()
+		    continue
                   node_num = int(cmd)
                   nodes = connect_to_router(node_num)
 		  NODE_LIST.append(nodes)

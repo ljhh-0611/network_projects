@@ -18,9 +18,13 @@ ADJACENT_NODES = []
 
 def node():
 
-    NODE_NUM = input("input Node Number (9100~): ")
-    NODE_NUM = int(NODE_NUM)
+    NODE_NUM = raw_input("input Node Number (9100~): ")
 
+    while not NODE_NUM.isdigit() or ( NODE_NUM.isdigit() and NODE_NUM < 9100 ):
+	print('Wrong! input again')
+        NODE_NUM = input("input Node Number (9100~): ")
+
+    NODE_NUM = int(NODE_NUM)
     node_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     node_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     node_socket.bind((HOST, NODE_NUM))
