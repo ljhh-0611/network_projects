@@ -4,15 +4,14 @@ import select
 import time
 from threading import Timer
 
-HOST = ''
-SOCKET_LIST = []
-PORT = 9009 
+NODE_LIST = []
+NODE_NUM_LIST = []
 
 # Settable parameters
 NUM_OF_NODES = 10 # The maximum number of nodes
 BANDWIDTH = 100000 # 1000 = 1KB, in turn, 10000  = 10KB (B/SEC)
 MTU = 1000 # Maximum Transmit Unit for this medium (B)
-RECV_BUFFER = 2*MTU # Receive buffer size
+RECV_BUFFER = MTU # Receive buffer size
 PDELAY = 0.1 # Propagation delay (s)
 
 IDLE = 'I'
@@ -22,74 +21,105 @@ BUSY = 'B'
 STATUS = IDLE # Status of Medium : I -> Idle, B -> Busy
 
 
+
 def medium():
-
-    medium_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    medium_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    medium_socket.bind((HOST, PORT))
-    medium_socket.listen(NUM_OF_NODES)
-
-    # Add medium socket object to the list of readable connections
-    SOCKET_LIST.append(medium_socket)
 
     global STATUS # Status of Medium : I -> Idle, B -> Busy
 
-    t=None; # Event Scheduler
-    print("Medium is Activated (port:" + str(PORT) + ") ")
+    t=None # Event Scheduler
+    num_of_connected_nodes = 0
+
+    NODE_LIST.append(sys.stdin)
+    sys.stdout.write('Put the Node Number to Connect: '); sys.stdout.flush()
 
     while 1:
       try:
         # Get the list sockets which are ready to be read through select
-        ready_to_read, ready_to_write, in_error = select.select(SOCKET_LIST, [], [], 0)
+        ready_to_read, ready_to_write, in_error = select.select(NODE_LIST, [], [], 0)
 
         for sock in ready_to_read:
-          # A new connection request received
-          if sock == medium_socket: # 0.0.0.0 : 9009 (sock)
-            sockfd, addr = medium_socket.accept()
-            SOCKET_LIST.append(sockfd)
-            print("Node (%s, %s) connected" % addr)
-          # A message from a node, not a new connection
-          else: # 127.0.0.1 : 9009 (sock)
             try:
-              # Receiving packet from the socket.
-              packet = sock.recv(RECV_BUFFER)
-              if packet:
-                # Check medium here!
-                if STATUS == BUSY:
-                  print('Collision has happend on medium!')
-                  t.cancel()
-                  Timer(MTU/BANDWIDTH+PDELAY,change_status).start() # Collided packet is still in medium
-                # Collision occurs!
-                elif STATUS ==IDLE:
-                  change_status() #Change status to busy
-                  # Message packet is being propagated to nodes through medium
-                  t=Timer(MTU/BANDWIDTH+PDELAY,forward_pkt, (medium_socket, sock, packet))
-                  t.start()
+              if sock == sys.stdin:
+                cmd = sys.stdin.readline()
+                if cmd == 'quit\n':
+                 # s.close()
+                  sys.exit()
+                if num_of_connected_nodes < 2:
+                  node_num = int(cmd)
+                  nodes = connect_to_router(node_num)
+		  NODE_LIST.append(nodes)
+		  NODE_NUM_LIST.append(node_num)
+                  num_of_connected_nodes += 1
+
+                  if num_of_connected_nodes == 1:
+    		    sys.stdout.write('Put the Node Number to Connect: '); sys.stdout.flush()
+		  elif num_of_connected_nodes == 2:
+		    print('Two Nodes are Connected!')
+		    change_status()
+		    forward_connect()
+
+		else:
+		  print('Already Two Nodes are Connected!')
+                #sys.stdout.write('Press ENTER key for transmitting a packet or type \'quit\' to end this program. : '); sys.stdout.flush()
+                # Receiving packet from the socket.
+
+	      else:
+                packet = sock.recv(RECV_BUFFER)
+
+                if packet:
+                  # Check medium here!
+                  if STATUS == BUSY:
+                    print('Collision has happend on medium!')
+                    t.cancel()
+                    Timer(MTU/BANDWIDTH,change_status).start() # Collided packet is still in medium
+                  # Collision occurs!
+                  elif STATUS ==IDLE:
+                    change_status() #Change status to busy
+                    # Message packet is being propagated to nodes through medium
+                    t=Timer(MTU/BANDWIDTH,forward_pkt, (sys.stdin, sock, packet))
+                    t.start()
+                  else:
+                    print('Undefined status')
                 else:
-                  print('Undefined status')
-              else:
-                if sock in SOCKET_LIST:
-                  print("Node (%s, %s) disconnected" % sock.getpeername())
-                  SOCKET_LIST.remove(sock)
-                  continue
+                  if node in NODE_LIST:
+                    print("Node (%s, %s) disconnected" % node.getpeername())
+                    NODE_LIST.remove(node)
+                    continue
 
             # Exception
             except:
-              if sock in SOCKET_LIST:
-                print("Error! Check Node (%s, %s)" % sock.getpeername())
-                SOCKET_LIST.remove(sock)
+              if node in NODE_LIST:
+                print("Error! Check Node (%s, %s)" % node.getpeername())
+                SOCKET_LIST.remove(node)
               continue
       except:
-        print('\nMedium program is terminated')
-        medium_socket.close()
         sys.exit()
+
+
+# Connect a node to medium ----- recommand not to modify
+def connect_to_router(node_num):
+  host = '127.0.0.1' # Local host address
+  port = node_num # Medium port number
+  s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+  s.settimeout(2)
+  try:
+    s.connect((host, port))
+  except:
+    print('Unable to connect')
+    sys.exit()
+
+  print('Connected. You will receive data of Node'+str(node_num))
+
+  return s
+
 
 # Forward_pkt to all connected nodes exclude itself(source node)
 def forward_pkt (medium_socket, sock, message):
  
     global STATUS
 
-    for socket in SOCKET_LIST:
+    for socket in NODE_LIST:
         # Send the message only to peer
         if socket != medium_socket and socket != sock:
             try:
@@ -98,11 +128,39 @@ def forward_pkt (medium_socket, sock, message):
                 # Broken socket connection
                 socket.close()
                 # Broken socket, remove it
-                if socket in SOCKET_LIST:
-                    SOCKET_LIST.remove(socket)
+                if socket in NODE_LIST:
+                    NODE_LIST.remove(socket)
 
     #Packet transmission is finished
     change_status() #Change status to idle
+
+def forward_connect ():
+
+  global STATUS
+
+  for socket in NODE_LIST:
+    # Send the message only to peer
+    if socket != sys.stdin:
+        try:
+     	    if socket == NODE_LIST[1]:
+	      print('case node num: '+str(NODE_NUM_LIST[0]))
+	      message = 'Connected'+str(NODE_NUM_LIST[1])
+  	      packet = message + '*'*(MTU-(len(message)))
+              socket.send(packet)
+     	    elif socket == NODE_LIST[2]:
+	      print('case node num: '+str(NODE_NUM_LIST[1]))
+	      message = 'Connected'+str(NODE_NUM_LIST[0])
+  	      packet = message + '*'*(MTU-(len(message)))
+              socket.send(packet)
+        except:
+	    print('=======socket broken===========')
+            # Broken socket connection
+            socket.close()
+            # Broken socket, remove it
+            if socket in NODE_LIST:
+              NODE_LIST.remove(socket)
+  print('Transmit the connect information')
+  change_status()
 
 # Chaning medium status 
 def change_status():
