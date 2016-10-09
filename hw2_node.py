@@ -16,8 +16,11 @@ RECV_BUFFER = MTU # Receive buffer size
 MEDIUM_LIST = []
 NODE_NUM = None
 ADJACENT_NODES = {}
+NODE_CONNECTION = {}
 
 node_socket = None
+
+FLOODING = False
 
 def node():
 
@@ -69,6 +72,8 @@ def node():
 		    new_dict = ast.literal_eval(data[9:])
 		    ADJACENT_NODES.update(new_dict)
 		    print ADJACENT_NODES
+		    NODE_CONNECTION[ int(data[9:].split(':')[0][1:]) ] = sock
+		    print NODE_CONNECTION
                   elif not data:
                     print('\nNot data?!')
                     print('\nDisconnected')
