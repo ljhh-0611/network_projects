@@ -27,6 +27,7 @@ def medium():
 
     global STATUS # Status of Medium : I -> Idle, B -> Busy
     global MEDIUM_COST
+    global NODE_LIST
 
     t=None # Event Scheduler
     num_of_connected_nodes = 0
@@ -81,7 +82,7 @@ def medium():
 
                 if packet:
                   # Check medium here!
-                  if STATUS == BUSY:
+                  """if STATUS == BUSY:
                     print('Collision has happend on medium!')
                     t.cancel()
                     Timer(MTU/BANDWIDTH,change_status).start() # Collided packet is still in medium
@@ -92,7 +93,8 @@ def medium():
                     t=Timer(MTU/BANDWIDTH,forward_pkt, (sys.stdin, sock, packet))
                     t.start()
                   else:
-                    print('Undefined status')
+                    print('Undefined status')"""
+		  forward_pkt(sys.stdin,sock,packet)
                 else:
                   if node in NODE_LIST:
                     print("Node (%s, %s) disconnected" % node.getpeername())
@@ -131,6 +133,7 @@ def connect_to_router(node_num):
 def forward_pkt (medium_socket, sock, message):
  
     global STATUS
+    global NODE_LIST
 
     for socket in NODE_LIST:
         # Send the message only to peer
@@ -145,7 +148,8 @@ def forward_pkt (medium_socket, sock, message):
                     NODE_LIST.remove(socket)
 
     #Packet transmission is finished
-    change_status() #Change status to idle
+
+    #change_status() #Change status to idle
 
 def forward_connect ():
 

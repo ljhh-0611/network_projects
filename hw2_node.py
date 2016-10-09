@@ -13,24 +13,33 @@ BANDWIDTH = 100000 # 1000 = 1KB, in turn, 10000  = 10KB (B/SEC)
 MTU = 1000 # Maximum Transmit Unit for this medium (B)
 RECV_BUFFER = MTU # Receive buffer size
 
+#For Communication with Adjacent Nodes
 MEDIUM_LIST = []
-NODE_NUM = None
+NODE_NUM = 0
 ADJACENT_NODES = {}
 NODE_CONNECTION = {}
 
 node_socket = None
 
+# For Reliable Flooding Phase
 FLOODING = False
+MAP = {}
+ADJACENT_INFORMATION = {}
+TO_RECEIVE_INFORMAION = []
+
 
 def node():
 
     global node_socket
+    global FLOODING
+    global MAP
+    global NODE_NUM
 
     NODE_NUM = raw_input("input Node Number (9100~): ")
 
     while not NODE_NUM.isdigit() or ( NODE_NUM.isdigit() and NODE_NUM < 9100 ):
 	print('Wrong! input again')
-        NODE_NUM = input("input Node Number (9100~): ")
+        NODE_NUM = raw_input("input Node Number (9100~): ")
 
     NODE_NUM = int(NODE_NUM)
     node_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -55,14 +64,20 @@ def node():
             	  MEDIUM_LIST.append(sockfd)
             	  print("Medium (%s, %s) connected" % addr)
                 elif sock == sys.stdin:
-                  cmd = sys.stdin.readline()
-                  if cmd == 'quit\n':
+                  cmd = sys.stdin.readline().rstrip('\n')
+                  if cmd == 'quit':
                     #s.close()
                     sys.exit()
-                  #trans_data = 'DATA' # Data will be stored in packet
-                  transmit() # Transmit a data packet
-                  #sys.stdout.write('Press ENTER key for transmitting a packet or type \'quit\' to end this program. : '); sys.stdout.flush()
-                  sys.stdout.write('YOU Press ENTER key\n'); sys.stdout.flush()
+		  elif cmd == 'start':
+		    #if FLOODING == False:
+		    FLOODING = True
+		    MAP[NODE_NUM] = ADJACENT_NODES
+		    forward_map_information()
+		  else:
+                    #trans_data = 'DATA' # Data will be stored in packet
+                    transmit() # Transmit a data packet
+                    #sys.stdout.write('Press ENTER key for transmitting a packet or type \'quit\' to end this program. : '); sys.stdout.flush()
+                    sys.stdout.write('YOU Press ENTER key\n'); sys.stdout.flush()
                 else:
                 # Incoming data packet from medium
                   packet = sock.recv(RECV_BUFFER) # Recive a packet
@@ -74,6 +89,13 @@ def node():
 		    print ADJACENT_NODES
 		    NODE_CONNECTION[ int(data[9:].split(':')[0][1:]) ] = sock
 		    print NODE_CONNECTION
+		  elif data[0:9] == 'FLOODING_':
+                    if FLOODING == False:
+                      FLOODING = True
+                      MAP[NODE_NUM] = ADJACENT_NODES
+		    flood_node_num = int( data[9:].split('_')[0] )
+		    flood_node_map = ast.literal_eval( data[9:].split('_')[1] )
+		    update_map( flood_node_num,flood_node_map )
                   elif not data:
                     print('\nNot data?!')
                     print('\nDisconnected')
@@ -102,6 +124,69 @@ def transmit ():
     	socket.send(packet)
     print('Transmit a packet')
 
+def forward_map_information ():
+
+  global node_socket
+  global NODE_NUM
+  global MTU
+  global MEDIUM_LIST
+
+  global FLOODING
+  global MAP
+  global ADJACENT_INFORMATION
+  global TO_RECEIVE_INFORMAION
+  global ADJACENT_NODES
+  global NODE_CONNECTION
+
+  map_keys = list(MAP.keys())
+
+  message = 'FLOODING_'+str(NODE_NUM)+'_'+str(MAP)
+  packet = message + '*'*(MTU-(len(message)))
+  
+  for node in ADJACENT_NODES:
+      #Case of forward information. First, I don't have any information of the node. Second, the node doesn't have some information that this node has.
+    if not node in map_keys or list( set(MAP.get(NODE_NUM)) - set(MAP.get(node)) ):
+      try:
+        NODE_CONNECTION.get(node).send(packet)
+      except:
+          print('=======node_medium broken===========')
+          # Broken socket connection
+          NODE_CONNECTION.get(node).close()
+          # Broken socket, remove it
+          if NODE_CONNECTION.get(node) in MEDIUM_LIST:
+            MEDIUM_LIST.remove( NODE_CONNECTION.get(node) )
+	    del NODE_CONNECTION[node]
+	    del ADJACENT_NODES[node]
+
+def update_map (flood_node_num,flood_node_map) :
+
+  global node_socket
+  global NODE_NUM
+  global MTU
+  global MEDIUM_LIST
+
+  global FLOODING
+  global MAP
+  global ADJACENT_INFORMATION
+  global TO_RECEIVE_INFORMAION
+  global ADJACENT_NODES
+  global NODE_CONNECTION
+
+  map_keys = list(MAP.keys())
+
+  # update adjacent_information.
+  #If flood node's information already exists, then delete old thing and update new thing
+  if flood_node_num in map_keys:
+    del ADJACENT_INFORMATION[flood_node_num]
+  ADJACENT_INFORMATION[flood_node_num] = flood_node_map
+  print ADJACENT_INFORMATION
+
+  for node_num, adjacent_nodes in flood_node_map.items():
+    if not node_num in MAP:
+      MAP[node_num] = adjacent_nodes
+  print MAP
+
+
 # Extract data
 def extract_data(packet):
   i=0
@@ -113,7 +198,6 @@ def extract_data(packet):
       continue
 
   data = packet[0:i]
-  print data
   return data
 
 if __name__ == "__main__":
