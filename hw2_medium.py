@@ -28,6 +28,7 @@ def medium():
     global STATUS # Status of Medium : I -> Idle, B -> Busy
     global MEDIUM_COST
     global NODE_LIST
+    global NODE_NUM_LIST
 
     t=None # Event Scheduler
     num_of_connected_nodes = 0
@@ -139,6 +140,7 @@ def forward_pkt (medium_socket, sock, message):
         # Send the message only to peer
         if socket != medium_socket and socket != sock:
             try:
+		print()
                 socket.send(message)
             except:
                 # Broken socket connection

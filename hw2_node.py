@@ -57,7 +57,6 @@ def node():
         try:
             # Get the list sockets which are readable
             ready_to_read, ready_to_write, in_error = select.select(MEDIUM_LIST, [], [])
-
             for sock in ready_to_read:
 		if sock == node_socket: # 0.0.0.0 : 9009 (sock)
             	  sockfd, addr = node_socket.accept()
@@ -69,9 +68,9 @@ def node():
                     #s.close()
                     sys.exit()
 		  elif cmd == 'start':
-		    #if FLOODING == False:
-		    FLOODING = True
-		    MAP[NODE_NUM] = ADJACENT_NODES
+		    if FLOODING == False:
+		      FLOODING = True
+		      MAP[NODE_NUM] = ADJACENT_NODES
 		    forward_map_information()
 		  else:
                     #trans_data = 'DATA' # Data will be stored in packet
@@ -82,7 +81,7 @@ def node():
                 # Incoming data packet from medium
                   packet = sock.recv(RECV_BUFFER) # Recive a packet
                   data = extract_data(packet) # Extract data in a packet
-
+		  print packet
 		  if data[0:9] == 'Connected':
 		    new_dict = ast.literal_eval(data[9:])
 		    ADJACENT_NODES.update(new_dict)
@@ -142,7 +141,6 @@ def forward_map_information ():
 
   message = 'FLOODING_'+str(NODE_NUM)+'_'+str(MAP)
   packet = message + '*'*(MTU-(len(message)))
-  
   for node in ADJACENT_NODES:
       #Case of forward information. First, I don't have any information of the node. Second, the node doesn't have some information that this node has.
     if not node in map_keys or list( set(MAP.get(NODE_NUM)) - set(MAP.get(node)) ):
@@ -179,12 +177,20 @@ def update_map (flood_node_num,flood_node_map) :
   if flood_node_num in map_keys:
     del ADJACENT_INFORMATION[flood_node_num]
   ADJACENT_INFORMATION[flood_node_num] = flood_node_map
-  print ADJACENT_INFORMATION
 
+  print 'adj_inform: '+str(ADJACENT_INFORMATION)#FIXME
+  '''
   for node_num, adjacent_nodes in flood_node_map.items():
+    print('adjacent_nodes: '+str(sdjacent_nodes))#FIXME
     if not node_num in MAP:
       MAP[node_num] = adjacent_nodes
-  print MAP
+      if node_num in TO_RECEIVE_INFORMATION:
+	TO_RECEIVE_INFORMTAION.remove(node_num)
+    
+  print 'MAP: '+str(MAP)#FIXME
+  '''
+
+  # Searching some nodes that this node doesn't have in map. If some nodes exist, then ADD them in TO_RECEIVE_INFORMATION
 
 
 # Extract data
