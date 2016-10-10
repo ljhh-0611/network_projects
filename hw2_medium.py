@@ -7,7 +7,6 @@ from threading import Timer
 
 NODE_LIST = []
 NODE_NUM_LIST = []
-NODE_CONDITION_LIST = {}
 
 # Settable parameters
 NUM_OF_NODES = 10 # The maximum number of nodes
