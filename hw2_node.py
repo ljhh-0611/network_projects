@@ -25,7 +25,7 @@ node_socket = None
 FLOODING = False
 MAP = {}
 ADJACENT_INFORMATION = {}
-TO_RECEIVE_INFORMAION = []
+TO_RECEIVE_INFORMATION = []
 
 
 def node():
@@ -81,7 +81,6 @@ def node():
                 # Incoming data packet from medium
                   packet = sock.recv(RECV_BUFFER) # Recive a packet
                   data = extract_data(packet) # Extract data in a packet
-		  print packet
 		  if data[0:9] == 'Connected':
 		    new_dict = ast.literal_eval(data[9:])
 		    ADJACENT_NODES.update(new_dict)
@@ -133,7 +132,7 @@ def forward_map_information ():
   global FLOODING
   global MAP
   global ADJACENT_INFORMATION
-  global TO_RECEIVE_INFORMAION
+  global TO_RECEIVE_INFORMATION
   global ADJACENT_NODES
   global NODE_CONNECTION
 
@@ -166,7 +165,7 @@ def update_map (flood_node_num,flood_node_map) :
   global FLOODING
   global MAP
   global ADJACENT_INFORMATION
-  global TO_RECEIVE_INFORMAION
+  global TO_RECEIVE_INFORMATION
   global ADJACENT_NODES
   global NODE_CONNECTION
 
@@ -179,16 +178,18 @@ def update_map (flood_node_num,flood_node_map) :
   ADJACENT_INFORMATION[flood_node_num] = flood_node_map
 
   print 'adj_inform: '+str(ADJACENT_INFORMATION)#FIXME
-  '''
-  for node_num, adjacent_nodes in flood_node_map.items():
-    print('adjacent_nodes: '+str(sdjacent_nodes))#FIXME
+  
+  for node_num, adjacent_nodes in flood_node_map.items(): #node_num = a node, adjacent_nodes = nodes_inform of the node
+    #print('adjacent_nodes: '+str(adjacent_nodes))#FIXME
     if not node_num in MAP:
       MAP[node_num] = adjacent_nodes
       if node_num in TO_RECEIVE_INFORMATION:
-	TO_RECEIVE_INFORMTAION.remove(node_num)
-    
+	TO_RECEIVE_INFORMATION.remove(node_num)
+
+  
+  #print flood_node_map
   print 'MAP: '+str(MAP)#FIXME
-  '''
+
 
   # Searching some nodes that this node doesn't have in map. If some nodes exist, then ADD them in TO_RECEIVE_INFORMATION
 

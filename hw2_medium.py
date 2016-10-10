@@ -140,7 +140,6 @@ def forward_pkt (medium_socket, sock, message):
         # Send the message only to peer
         if socket != medium_socket and socket != sock:
             try:
-		print()
                 socket.send(message)
             except:
                 # Broken socket connection
