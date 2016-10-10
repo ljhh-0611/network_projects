@@ -186,6 +186,12 @@ def update_map (flood_node_num,flood_node_map) :
       if node_num in TO_RECEIVE_INFORMATION:
 	TO_RECEIVE_INFORMATION.remove(node_num)
 
+    for anode in adjacent_nodes.keys():
+      print anode
+      if not anode in map_keys:
+	TO_RECEIVE_INFORMATION.append(anode)
+	print "TO_CRECEIVE_INFORMATION ADDED... LIST: "+str(TO_RECEIVE_INFORMATION)
+
   
   #print flood_node_map
   print 'MAP: '+str(MAP)#FIXME
