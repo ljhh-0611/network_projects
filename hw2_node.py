@@ -1,4 +1,3 @@
-from __future__ import generators
 import sys
 import socket
 import select
@@ -15,30 +14,42 @@ BANDWIDTH = 100000 # 1000 = 1KB, in turn, 10000  = 10KB (B/SEC)
 MTU = 1000 # Maximum Transmit Unit for this medium (B)
 RECV_BUFFER = MTU # Receive buffer size
 
+NODE_ON = False
+
 #For Communication with Adjacent Nodes
 MEDIUM_LIST = []
 NODE_NUM = 0
 ADJACENT_NODES = {}
+ADJACENT_ALL_NODES = {}
 NODE_CONNECTION = {}
 
 node_socket = None
 
 # For Reliable Flooding Phase
 FLOODING = False
+FLOODING_END_TIME = None
 MAP = {}
 ADJACENT_INFORMATION = {}
 TO_RECEIVE_INFORMATION = []
 
-MAKING_MAP = False
+MAKING_TABLE = False #FIXME
+ROUTING_TABLE = {}
 
 
 def node():
 
     global node_socket
     global FLOODING
+    global FLOODING_END_TIME
     global MAP
     global NODE_NUM
-    global MAKING_MAP
+    global MAKING_TABLE
+    global ROUTING_TABLE
+    global NODE_ON
+    global ADJACENT_NODES
+    global ADJACENT_INFORMATION
+    global TO_RECEIVE_INFORMATION
+    global ADJACENT_ALL_NODES
 
     NODE_NUM = raw_input("input Node Number (9100~): ")
 
@@ -58,6 +69,9 @@ def node():
 
     MEDIUM_LIST.append(sys.stdin)
 
+    t = Timer(MTU/BANDWIDTH,timer_initiate,[])
+    t.start()
+
     while 1:
         try:
             # Get the list sockets which are readable
@@ -70,17 +84,33 @@ def node():
                 elif sock == sys.stdin:
                   cmd = sys.stdin.readline().rstrip('\n')
                   if cmd == 'quit':
-                    #s.close()
+		    t.cancel()
+                    node_socket.close()
                     sys.exit()
-		  elif cmd == 'start':
-		    if FLOODING == False:
-		      FLOODING = True
-		      MAP[NODE_NUM] = ADJACENT_NODES
-		    forward_map_information()
-		  elif cmd == 'dijk':
-		    for nodes in MAP:
-		      if nodes != NODE_NUM:
-		        dijkstra(NODE_NUM, nodes)
+		  elif cmd == 'on':
+		    if ADJACENT_ALL_NODES == {}:
+		      print('There is no connection')
+		    elif NODE_ON == False:
+		      NODE_ON = True
+		      print('This node is turned ON')
+		      forward_condition_change()
+		    else:
+		      print('This node is already ON')
+		  elif cmd == 'off':
+		    if NODE_ON == True and FLOODING == False and MAKING_TABLE == False:
+		      NODE_ON = False
+		      ROUTING_TABLE = {}
+		      MAP={}
+		      ADJACENT_INFORMATION = {}
+		      TO_RECEIVE_INFORMATION = []
+		      FLOODING = False
+		      FLOODING_END_TIME = None
+		      print('This node is turned OFF')
+		      forward_condition_change()
+		    elif FLOODING == True or MAKING_TABLE == True:
+		      print('This node is in Making Routing Table!')
+		    else:
+		      print('This node is already OFF')
 		  else:
                     #trans_data = 'DATA' # Data will be stored in packet
                     transmit() # Transmit a data packet
@@ -92,22 +122,68 @@ def node():
                   data = extract_data(packet) # Extract data in a packet
 		  if data[0:9] == 'Connected':
 		    new_dict = ast.literal_eval(data[9:])
-		    ADJACENT_NODES.update(new_dict)
-		    print ADJACENT_NODES
+		    ADJACENT_ALL_NODES.update(new_dict)
+		    print ADJACENT_ALL_NODES
 		    NODE_CONNECTION[ int(data[9:].split(':')[0][1:]) ] = sock
 		    print NODE_CONNECTION
+		    forward_recent_node_condition(sock)
+
 		  elif data[0:9] == 'FLOODING_':
-                    if FLOODING == False:
-                      FLOODING = True
+		    if NODE_ON:
+                      if FLOODING == False and MAKING_TABLE == False and (FLOODING_END_TIME == None or time.time() - FLOODING_END_TIME > 2 ):
+		        ROUTING_TABLE = {}
+		        MAP={}
+                        ADJACENT_INFORMATION = {}
+                        TO_RECEIVE_INFORMATION = []
+                        FLOODING = True
+		        FLOODING_END_TIME = None
+                        MAP[NODE_NUM] = ADJACENT_NODES
+		      flood_node_num = int( data[9:].split('_')[0] )
+		      flood_node_map = ast.literal_eval( data[9:].split('_')[1] )
+		      update_map( flood_node_num,flood_node_map )
+
+		  elif data[0:16] == 'RecentCondition_':
+		    if data[16:].split('_')[1] == 'True':
+		      on_node_num = int(data[16:].split('_')[0])
+		      ADJACENT_NODES[on_node_num] = ADJACENT_ALL_NODES[on_node_num]
+		  elif data[0:18] == 'ConditionChangeOn_':
+		    on_node_num = int(data[18:])
+		    ADJACENT_NODES[on_node_num] = ADJACENT_ALL_NODES[on_node_num]
+		    #TODO routing initiate
+		    if NODE_ON and FLOODING == False and MAKING_TABLE == False and (FLOODING_END_TIME == None or time.time() - FLOODING_END_TIME > 2 ):
+		      ROUTING_TABLE = {}
+		      MAP={}
+		      ADJACENT_INFORMATION = {}
+		      TO_RECEIVE_INFORMATION = []
+		      MAP[NODE_NUM] = ADJACENT_NODES
+		      FLOODING = True
+		      FLOODING_END_TIME = None
+                      forward_map_information()
+		    elif NODE_ON and FLOODING == True:
+		      MAP[NODE_NUM].update({on_node_num:ADJACENT_ALL_NODES[on_node_num]}) #FIXME It has possibility that is not!!!!
+		      forward_map_information()
+		  elif data[0:19] == 'ConditionChangeOff_':
+		    off_node_num = int(data[19:])
+		    del ADJACENT_NODES[off_node_num]
+		    #TODO routing initiate
+                    if NODE_ON and FLOODING == False and MAKING_TABLE == False and (FLOODING_END_TIME == None or time.time() - FLOODING_END_TIME > 2 ):
+		      ROUTING_TABLE = {}
+                      MAP={}
+                      ADJACENT_INFORMATION = {}
+                      TO_RECEIVE_INFORMATION = []
                       MAP[NODE_NUM] = ADJACENT_NODES
-		    flood_node_num = int( data[9:].split('_')[0] )
-		    flood_node_map = ast.literal_eval( data[9:].split('_')[1] )
-		    update_map( flood_node_num,flood_node_map )
-                  elif not data:
+                      FLOODING = True
+		      FLOODING_END_TIME = None
+                      forward_map_information()
+                    #elif NODE_ON and FLOODING == True:
+                      #del MAP[NODE_NUM][on_node_num] #FIXME It has possibility that is not!!!! and, in case of DEL, can occur making wrong list in other nodes
+                      #forward_map_information()
+
+                  elif not data and NODE_ON:
                     print('\nNot data?!')
                     print('\nDisconnected')
                     sys.exit()
-                  else:
+                  elif NODE_ON:
                     print("\nReceive a packet : %s" % data)
                     #sys.stdout.write('Press ENTER key for transmitting a packet or type \'quit\' to end this program. : '); sys.stdout.flush()
                     #sys.stdout.write('YOU receive something'); sys.stdout.flush()
@@ -115,6 +191,35 @@ def node():
             print('\nNode program is terminated')
             node_socket.close()
             sys.exit()
+
+
+def timer_initiate ():
+  global FLOODING_END_TIME
+  global MAP
+  global ADJACENT_INFORMATION
+  global TO_RECEIVE_INFORMATION
+  global FLOODING
+  global FLOODING_END_TIME
+  global ADJACENT_NODES
+  global ROUTING_TABLE
+  global NODE_ON
+
+  while 1:
+    time_gap = time.time() - FLOODING_END_TIME
+    if FLOODING_END_TIME = None or time_gap < 20:
+      time.sleep( 1 +( time_gap % 1 ) )
+    elif NODE_ON:
+      #FIXME
+      ROUTING_TABLE = {}
+      MAP={}
+      ADJACENT_INFORMATION = {}
+      TO_RECEIVE_INFORMATION = []
+      FLOODING = True
+      FLOODING_END_TIME = None
+      MAP[NODE_NUM] = ADJACENT_NODES
+      forward_map_information()
+    else:
+      FLOODING_END_TIME = None
 
 
 # Make and transmit a data packet
@@ -131,6 +236,42 @@ def transmit ():
     	socket.send(packet)
     print('Transmit a packet')
 
+
+
+
+
+def forward_condition_change ():
+  global node_socket
+  global NODE_ON
+  global NODE_NUM
+
+  if NODE_ON:
+    message = 'ConditionOn_'+str(NODE_NUM)
+    packet = message+ '*'*(MTU-(len(message)))
+  else:
+    message = 'ConditionOff_'+str(NODE_NUM)
+    packet = message+ '*'*(MTU-(len(message)))
+  for socket in MEDIUM_LIST:
+    if socket != sys.stdin and socket != node_socket:
+      socket.send(packet)
+
+
+
+
+
+def forward_recent_node_condition (sock):
+  global NODE_ON
+  global NODE_NUM
+
+  message = 'RecentCondition_'+str(NODE_NUM)+'_'+str(NODE_ON)
+  packet = message+ '*'*(MTU-(len(message)))
+  sock.send(packet)
+
+
+
+
+
+
 def forward_map_information ():
 
   global NODE_NUM
@@ -138,11 +279,14 @@ def forward_map_information ():
   global MEDIUM_LIST
 
   global FLOODING
+  global FLOODING_END_TIME
   global MAP
   global ADJACENT_INFORMATION
   global TO_RECEIVE_INFORMATION
   global ADJACENT_NODES
   global NODE_CONNECTION
+  global MAKING_TABLE
+  global ROUTING_TABLE
 
   map_keys = list(MAP.keys())
   num_of_sending = 0
@@ -170,6 +314,15 @@ def forward_map_information ():
 
   if num_of_sending == 0 and TO_RECEIVE_INFORMATION == []:
     FLOODING = False
+    MAKING_TABLE = True
+    for nodes in MAP:
+      if nodes != NODE_NUM:
+        ROUTING_TABLE[nodes]=dijkstra(NODE_NUM, nodes)
+    MAKING_TABLE = False
+    FLOODING_END_TIME = time.time()
+
+
+
  
 
 def update_map (flood_node_num,flood_node_map) :
@@ -204,6 +357,10 @@ def update_map (flood_node_num,flood_node_map) :
   print 'MAP: '+str(MAP)#FIXME
   forward_map_information()
 
+
+
+
+
 def dijkstra(src,dest,visited=[],distances={},predecessors={}):
     global MAP
     # a few sanity checks
@@ -220,7 +377,8 @@ def dijkstra(src,dest,visited=[],distances={},predecessors={}):
             path.append(pred)
             pred=predecessors.get(pred,None)
 	path.reverse()
-        print('shortest path: '+str(path)+" cost="+str(distances[dest])) 
+        #print('shortest path: '+str(path)+" cost="+str(distances[dest])) 
+        return path
     else :	
         # if it is the initial  run, initializes the cost
         if not visited: 
@@ -245,6 +403,9 @@ def dijkstra(src,dest,visited=[],distances={},predecessors={}):
         dijkstra(x,dest,visited,distances,predecessors)
 
 
+
+
+
 # Extract data
 def extract_data(packet):
   i=0
@@ -257,6 +418,7 @@ def extract_data(packet):
 
   data = packet[0:i]
   return data
+
 
 
 

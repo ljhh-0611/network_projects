@@ -7,6 +7,7 @@ from threading import Timer
 
 NODE_LIST = []
 NODE_NUM_LIST = []
+NODE_CONDITION_LIST = {}
 
 # Settable parameters
 NUM_OF_NODES = 10 # The maximum number of nodes
@@ -80,7 +81,7 @@ def medium():
 
 	      else:
                 packet = sock.recv(RECV_BUFFER)
-
+		
                 if packet:
                   # Check medium here!
                   """if STATUS == BUSY:
